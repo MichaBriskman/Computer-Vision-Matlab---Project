@@ -1,0 +1,201 @@
+% random rotation matrix from World coordinates to camera, using the qr
+% decomposition
+[R, ~] = qr(rand(3));
+
+% use function GetInternalParams 
+[f, px, py, mx, my, s] = GetInternalParameters();
+
+% compute camera center Ct
+z_cam = R * [0; 0; 1];
+d = 25;
+Ct = -R * [0;0;d];
+
+P = ProjectionMatrix(R', Ct, f, px, py, mx, my, s);
+
+% display results
+fprintf('Rotation matrix R:\n');
+disp(R);
+fprintf('Camera center Ct:\n');
+disp(Ct);
+fprintf('Projection matrix P:\n');
+disp(P);
+
+figure(1); clf
+axis([-50 50 -50 50 -50 50]);
+axis equal
+hold on
+grid on
+
+cameratoolbar('ResetCameraAndSceneLight')
+cameratoolbar('Show')
+cameratoolbar('SetMode', 'orbit')
+cameratoolbar('SetCoordSys', 'z')
+
+% set the length of the x, y, and z axes
+length = 20;
+h1 = plot3([0 length],[0 0],[0 0], 'r', 'LineWidth', 2, 'DisplayName', 'X');
+h2 = plot3([0 0],[0 length],[0 0], 'g', 'LineWidth', 2, 'DisplayName', 'Y');
+h3 = plot3([0 0],[0 0],[0 length], 'b', 'LineWidth', 2, 'DisplayName', 'Z');
+
+text(length, 0,0,'X','FontSize',8, 'Color', 'r');
+text(0, length,0,'Y','FontSize',8, 'Color', 'g');
+text(0, 0,length,'Z','FontSize',8, 'Color', 'b');
+text(0, 0, 0,'W','FontSize',8);
+
+xlim([-50,50]);
+ylim([-50,50]);
+zlim([-50,50]);
+
+% Plot the camera coordinate system
+c1 = plot3([Ct(1) Ct(1)+length*R(1,1)], [Ct(2) Ct(2)+length*R(2,1)], [Ct(3) Ct(3)+length*R(3,1)], 'r', 'LineWidth', 2);
+c2 = plot3([Ct(1) Ct(1)+length*R(1,2)], [Ct(2) Ct(2)+length*R(2,2)], [Ct(3) Ct(3)+length*R(3,2)], 'g', 'LineWidth', 2);
+c3 = plot3([Ct(1) Ct(1)+length*R(1,3)], [Ct(2) Ct(2)+length*R(2,3)], [Ct(3) Ct(3)+length*R(3,3)], 'b', 'LineWidth', 2);
+
+text(Ct(1)+length*R(1,1), Ct(2)+length*R(2,1), Ct(3)+length*R(3,1),'X','FontSize',8, 'Color', 'r');
+text(Ct(1)+length*R(1,2), Ct(2)+length*R(2,2), Ct(3)+length*R(3,2),'Y','FontSize',8, 'Color', 'g');
+text(Ct(1)+length*R(1,3), Ct(2)+length*R(2,3), Ct(3)+length*R(3,3),'Z','FontSize',8, 'Color', 'b');
+text(Ct(1), Ct(2), Ct(3),'C','FontSize',8);
+
+%--------------------------------------------------------------------------
+% Define the transformation matrix that converts from world to camera coordinates
+t = R*[0; 0; -d];
+T = [R, t; 0 0 0 1];
+
+% Define the side length of the square
+side_length = 20;
+
+% Define the corners of the square in the camera coordinate system
+corner1 = [-side_length/2; -side_length/2; side_length/2; 1];
+corner2 = [side_length/2; -side_length/2; side_length/2; 1];
+corner3 = [side_length/2; side_length/2; side_length/2; 1];
+corner4 = [-side_length/2; side_length/2; side_length/2; 1];
+
+% Convert the corners to camera coordinates
+corner1 = T*corner1;
+corner2 = T*corner2;
+corner3 = T*corner3;
+corner4 = T*corner4;
+
+corner_1 = corner1(1:3);
+corner_2 = corner2(1:3);
+corner_3 = corner3(1:3);
+corner_4 = corner4(1:3);
+
+% Plot the square using plot3
+plot3([corner_1(1), corner_2(1)], [corner_1(2), corner_2(2)], [corner_1(3), corner_2(3)], 'r', 'LineWidth', 2);
+plot3([corner_2(1), corner_3(1)], [corner_2(2), corner_3(2)], [corner_2(3), corner_3(3)], 'r', 'LineWidth', 2);
+plot3([corner_1(1), corner_4(1)], [corner_1(2), corner_4(2)], [corner_1(3), corner_4(3)], 'r', 'LineWidth', 2);
+plot3([corner_3(1), corner_4(1)], [corner_3(2), corner_4(2)], [corner_3(3), corner_4(3)], 'r', 'LineWidth', 2);
+
+%--------------------------------------------------------------------------
+% display the shapes in the world coordinate system.
+Q = GetShape();
+shape_one = Q(:,1:9);
+shape_two = Q(:,10:18);
+shape_three = Q(:,19:27);
+
+plot3(shape_one(1,:), shape_one(2,:), shape_one(3,:), 'm');
+plot3(shape_two(1,:), shape_two(2,:), shape_two(3,:), 'b');
+plot3(shape_three(1,:), shape_three(2,:), shape_three(3,:), 'c');
+
+%--------------------------------------------------------------------------
+% Convert to non-homogeneous coordinates
+shape_nonhomog_1 = shape_one(1:end-1,:) ./ shape_one(end,:);
+shape_nonhomog_2 = shape_two(1:end-1,:) ./ shape_two(end,:);
+shape_nonhomog_3 = shape_three(1:end-1,:) ./ shape_three(end,:);
+
+% get the center of the plane
+center = [0; 0; length/2; 1];
+center = T*center;
+center = center(1:3);
+
+% Define the center point and the normal vector of the plane
+p0 = center;
+n = [Ct(1)+length*R(1,3) - Ct(1), Ct(2)+length*R(2,3) - Ct(2), Ct(3)+length*R(3,3) - Ct(3)];
+
+% Normalize the normal vector
+n = n / norm(n);
+
+% Compute the coefficients of the plane equation
+A = n(1);
+B = n(2);
+C = n(3);
+D = -dot(n, p0);
+
+% calculate the shapes and in line 145 project them nonhomog way
+n = [A B C] / norm([A B C]);
+d = D / norm([A B C]);
+shape_proj_1 = shape_nonhomog_1 - n'*(n*shape_nonhomog_1 + d);
+shape_proj_2 = shape_nonhomog_2 - n'*(n*shape_nonhomog_2 + d);
+shape_proj_3 = shape_nonhomog_3 - n'*(n*shape_nonhomog_3 + d);
+
+%--------------------------------------------------------------------------
+% Calculating the projection to the plane of the camera
+% The plane equation
+X = [A, B, C, D];
+
+B1 = projectShapesOntoPlaneFig1(shape_one, Ct, X);
+plot3(B1(1,:), B1(2,:), B1(3,:), 'm' );
+B2 = projectShapesOntoPlaneFig1(shape_two, Ct, X);
+plot3(B2(1,:), B2(2,:), B2(3,:), 'b');
+B3 = projectShapesOntoPlaneFig1(shape_three, Ct, X);
+plot3(B3(1,:), B3(2,:), B3(3,:), 'c');
+
+%--------------------------------------------------------------------------
+% Project the shapes onto the plane non homog fig 2
+
+% 0. find the indices into the sub shapes
+Qs  = length(Q);
+Qs1 = 1:Qs/3;
+Qs2 = 1+Qs/3:2*Qs/3;
+Qs3 = 1+2*Qs/3:Qs;
+
+% 1. transform 3D points to 2D homogeneous
+q = P*Q;
+
+% 2. to get to non-homogeneous coordinates we divide by
+% the last coordinate:
+% this divides each row by the last row
+q = q ./ q(3,:);
+
+% 3. show it on the 2d camera plane
+figure(2); clf
+
+hold on
+grid on
+
+plot(q(1,Qs1),q(2,Qs1),'m')
+plot(q(1,Qs2),q(2,Qs2),'b')
+plot(q(1,Qs3),q(2,Qs3),'c')
+
+axis equal
+
+
+%--------------------------------------------------------------------------
+function [B_1] = projectShapesOntoPlaneFig1(shape, Ct, X)
+% returns a shape projected into the plane
+% input:
+% shape 4x9 the shape in world coordinates system
+% Ct 3x1 camera center in world coordinates
+% X 4x1 the coefficients of the plane
+%
+% output:
+% B_1 3x9 the shape projected into the plane.
+
+    % Initialize the new matrix B as empty
+    B_1 = [];
+    
+    % Iterate over the rows of shape_one
+    Ct_t = Ct';
+    for i = 1:size(shape,2)
+        pt = shape(:,i)';
+        v = pt(1:3) - Ct_t;
+        [parallel, q] = PointFromPlaneLine3D(X,pt(1:3),v);
+        if parallel == 0
+            B_1 = [B_1; q];
+            %plot3([Ct_t(1) pt(1)], [Ct_t(2) pt(2)], [Ct_t(3) pt(3)],
+            %'b-'); % lines from camera to the shape in world coordinate system
+        end
+    end
+    B_1 = B_1';
+end
