@@ -2,11 +2,7 @@
 
 <span dir="rtl">מגישים:</span>
 
-<span dir="rtl">שלמה גולאייב 318757382</span>
 
-<span dir="rtl">מיכאל בסוב 315223156</span>
-
-<span dir="rtl">מיכה בריסקמן 208674713</span>
 
 1.  <span dir="rtl">א.</span>
 
